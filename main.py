@@ -1,3 +1,4 @@
+import sys
 from src.manager import Manager
 from src.models import Parameters
 
@@ -33,13 +34,19 @@ def display_apartments(manager):
         for room in apartment.rooms.values():
             print(f"      • {room.name:<25} {room.area_m2:>6} m²")
         
-        # Find bills for this apartment
         apartment_bills = [bill for bill in manager.bills if bill.apartment == apartment.key]
         if apartment_bills:
             print_subsection_header("Bills")
             for bill in apartment_bills:
-                month_year = f"{bill.settlement_month}/{bill.settlement_year}" if bill.settlement_month and bill.settlement_year else "N/A"
-                print(f"      • {bill.type:<15} {format_currency(bill.amount_pln):>15}  Due: {bill.date_due}  Period: {month_year}")
+                month_year = (
+                    f"{bill.settlement_month}/{bill.settlement_year}"
+                    if bill.settlement_month and bill.settlement_year
+                    else "N/A"
+                )
+                print(
+                    f"      • {bill.type:<15} {format_currency(bill.amount_pln):>15}  "
+                    f"Due: {bill.date_due}  Period: {month_year}"
+                )
 
 
 def display_tenants(manager):
@@ -54,18 +61,64 @@ def display_tenants(manager):
         print(f"   Deposit: {format_currency(tenant.deposit_pln)}")
         print(f"   Agreement: {tenant.date_agreement_from} to {tenant.date_agreement_to}")
         
-        # Find transfers for this tenant
-        tenant_transfers = [transfer for transfer in manager.transfers if transfer.tenant == tenant.name]
+        tenant_transfers = [
+            transfer for transfer in manager.transfers
+            if transfer.tenant == tenant.name
+        ]
         if tenant_transfers:
             print_subsection_header("Transfers")
             for transfer in tenant_transfers:
-                month_year = f"{transfer.settlement_month}/{transfer.settlement_year}" if transfer.settlement_month and transfer.settlement_year else "N/A"
-                print(f"      • {format_currency(transfer.amount_pln):>15}  Date: {transfer.date}  Period: {month_year}")
+                month_year = (
+                    f"{transfer.settlement_month}/{transfer.settlement_year}"
+                    if transfer.settlement_month and transfer.settlement_year
+                    else "N/A"
+                )
+                print(
+                    f"      • {format_currency(transfer.amount_pln):>15}  "
+                    f"Date: {transfer.date}  Period: {month_year}"
+                )
+
+
+def display_settlement(manager: Manager, apartment_key: str, year: int, month: int):
+    """Display settlement for a specific apartment and month"""
+    settlement = manager.get_settlement(apartment_key, year, month)
+    if settlement is None:
+        print(f"\nBrak rozliczenia dla mieszkania {apartment_key} w {month}/{year}")
+        return
+
+    print_section_header(
+        f"SETTLEMENT FOR {apartment_key} — {month}/{year}"
+    )
+    print(f"Total apartment cost: {format_currency(settlement.total_due_pln)}")
+
+    tenants_settlements = manager.create_tenants_settlements(settlement)
+    if not tenants_settlements:
+        print("\nBrak najemców w tym mieszkaniu.")
+        return
+
+    print_subsection_header("Tenant charges")
+    for ts in tenants_settlements:
+        print(f"   • {ts.tenant:<20} {format_currency(ts.total_due_pln)}")
 
 
 if __name__ == '__main__':
     parameters = Parameters()
     manager = Manager(parameters)
+
+    if len(sys.argv) == 4:
+        apartment_key = sys.argv[1]
+        year = int(sys.argv[2])
+        month = int(sys.argv[3])
+
+        display_settlement(manager, apartment_key, year, month)
+        print(f"\n{'=' * 70}\n")
+        sys.exit(0)
+
+    print("Użycie:")
+    print("  python main.py <apartment_key> <year> <month>")
+    print("\nPrzykład:")
+    print("  python main.py apart-polanka 2024 1")
+    print("\nBrak argumentów — wyświetlam pełne podsumowanie systemu.\n")
 
     display_apartments(manager)
     display_tenants(manager)

@@ -71,4 +71,36 @@ class Manager:
             )
         for tenant in tenants_in_apartment ] 
     
+    def get_debtors(self, apartment_key: str, month: int, year: int):
+        settlement = self.get_settlement(apartment_key, year, month)
+        if settlement is None:
+            return None
+
+        tenants = [t for t in self.tenants.values() if t.apartment == apartment_key]
+        if not tenants:
+            return []
+
+        per_tenant_due = settlement.total_due_pln / len(tenants)
+
+        debtors = []
+        for tenant in tenants:
+            paid = sum(
+                t.amount_pln
+                for t in self.transfers
+                if t.tenant == tenant.name and
+                    t.settlement_year == year and
+                    t.settlement_month == month
+            )
+            if paid < per_tenant_due:
+                debtors.append(tenant.name)
+
+        return debtors
     
+    def get_tax(self, year: int, month: int, tax_rate: float) -> int:
+        income = sum(
+            t.amount_pln
+            for t in self.transfers
+            if t.settlement_year == year and t.settlement_month == month
+        )
+        return round(income * tax_rate)
+
